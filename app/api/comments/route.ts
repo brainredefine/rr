@@ -1,4 +1,3 @@
-// app/api/comments/route.ts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -14,7 +13,7 @@ export async function GET() {
     if (error) throw error;
 
     const items = Object.fromEntries(
-      (data as DbComment[] | null ?? []).map((r) => [r.key, r.comment ?? ""])
+      ((data as DbComment[]) ?? []).map((r) => [r.key, r.comment ?? ""])
     );
     return NextResponse.json({ items });
   } catch (e) {
@@ -29,17 +28,14 @@ export async function PUT(req: Request) {
     const body = (await req.json()) as { key?: string; comment?: string };
     const key = body?.key ?? "";
     const comment = body?.comment ?? "";
-
-    if (!key) {
-      return NextResponse.json({ error: "missing key" }, { status: 400 });
-    }
+    if (!key) return NextResponse.json({ error: "missing key" }, { status: 400 });
 
     const sb = supabaseAdmin();
     const { error } = await sb
       .from("comments")
       .upsert({ key, comment }, { onConflict: "key" });
-
     if (error) throw error;
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
