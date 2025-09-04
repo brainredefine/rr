@@ -1,3 +1,4 @@
+// app/api/rr/[asset]/route.ts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,12 @@ type DiffLine = {
 
 export async function GET(
   _req: NextRequest,
-  context: { params: { asset: string } }
+  context: { params: Promise<{ asset: string }> } // ← attendu par ton Next sur Vercel
 ) {
   try {
-    const { asset } = context.params;
+    const { asset } = await context.params; // ← on attend ici
 
-    // auth
+    // Auth
     const cookieStore = await cookies();
     const token = cookieStore.get("session")?.value ?? null;
     const sess = await readSession(token);
@@ -106,7 +107,7 @@ export async function GET(
         ? { gla_m2: p.gla_m2, rent_eur_pa: p.rent_eur_pa, walt_years: p.walt_years }
         : undefined;
 
-      // filtre permanent: rent=0 des deux côtés
+      // filtre permanent: rent = 0 des deux côtés
       const ra = Number(am?.rent_eur_pa ?? 0);
       const rp = Number(pm?.rent_eur_pa ?? 0);
       if (ra === 0 && rp === 0) continue;
@@ -167,9 +168,9 @@ export async function GET(
       lines,
       generated_at: new Date().toISOString(),
     });
-  } catch (e) {
+  } catch (e: unknown) {
     console.error("[/api/rr/[asset]] ERROR:", e);
-    const msg = e instanceof Error ? e.message : "error";
+    const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
