@@ -1,7 +1,7 @@
 // app/leases/LeasesClient.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type Line = {
   asset: string;
@@ -74,11 +74,22 @@ export default function LeasesClient() {
       try {
         const [resLease, resNotes] = await Promise.all([fetch("/api/leases"), fetch("/api/notes")]);
         if (!resLease.ok) throw new Error(`/api/leases ${resLease.status}`);
-        if (!resNotes.ok) throw new Error(`/api/notes ${resNotes.status}`);
         const leases = (await resLease.json()) as Result;
-        const n = await resNotes.json();
+
+        let commItems: Record<string, string> = {};
+        try {
+          if (resNotes.ok) {
+            const n = await resNotes.json();
+            commItems = n?.items ?? {};
+          } else {
+            console.warn("/api/notes failed:", resNotes.status);
+          }
+        } catch (e) {
+          console.warn("/api/notes error:", e);
+        }
+
         setData(leases);
-        setNotes(n?.items ?? {});
+        setNotes(commItems);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       }
@@ -102,19 +113,25 @@ export default function LeasesClient() {
   if (error) return <p className="p-4 text-red-500">Erreur: {error}</p>;
   if (!data) return <p className="p-4">Chargement…</p>;
 
-  const qn = norm(query);
+  const qn = norm(query.trim());
 
-  // ⬇️ use the filtered list both for KPIs and table
-  const linesFiltered = (data.lines ?? []).filter((l) => {
-    if (!qn) return true;
-    const assetMatch = norm(l.asset).includes(qn);
-    const label = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
-    const tenantMatch = norm(label).includes(qn);
-    const noteMatch = norm(notes[l.tenantId] ?? "").includes(qn);
-    return assetMatch || tenantMatch || noteMatch;
-  });
+  // ✅ liste filtrée stable
+  const linesFiltered = useMemo(() => {
+    const base = data.lines ?? [];
+    if (!qn) return base;
+    return base.filter((l) => {
+      const assetMatch = norm(l.asset).includes(qn);
+      const label = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
+      const tenantMatch = norm(label).includes(qn);
+      const noteMatch = norm(notes[l.tenantId] ?? "").includes(qn);
+      return assetMatch || tenantMatch || noteMatch;
+    });
+  }, [data.lines, notes, qn]);
 
-  const rentFiltered = linesFiltered.reduce((s, l) => s + (Number(l.rent_eur_pa) || 0), 0);
+  const rentFiltered = useMemo(
+    () => linesFiltered.reduce((s, l) => s + (Number(l.rent_eur_pa) || 0), 0),
+    [linesFiltered]
+  );
 
   const num = "text-center";
   const V = "border-l border-black";
@@ -164,13 +181,15 @@ export default function LeasesClient() {
             </tr>
           </thead>
           <tbody>
-            {linesFiltered.map((l) => {
+            {linesFiltered.map((l, i) => {
               const key = l.tenantId;
               const savingThis = !!saving[key];
               return (
-                <tr key={key} className="text-gray-900">
+                <tr key={`${key}-${i}`} className="text-gray-900">
                   <td className="p-2 whitespace-nowrap" style={{ width: "5%" }}>{l.asset}</td>
-                  <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>{l.tenantLabel ?? prettyFromTenantId(l.tenantId)}</td>
+                  <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>
+                    {l.tenantLabel ?? prettyFromTenantId(l.tenantId)}
+                  </td>
                   <td className={`p-2 ${num} ${V}`}>{fmtInt(l.gla_m2)}</td>
                   <td className={`p-2 ${num}`}>{fmtInt(l.rent_eur_pa)}</td>
                   <td className={`p-2 ${num}`}>{fmt1(l.walt_years)}</td>
