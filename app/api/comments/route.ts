@@ -1,47 +1,50 @@
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic"; // pas de cache pour tes CSV/XLSX
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-
-type Payload = { version: number; items: Record<string, string> };
+import { sbServer } from "@/lib/supabase-server";
+import { cookies } from "next/headers";
+import { readSession } from "@/lib/session";
 
 export async function GET() {
   try {
-    const supa = supabaseAdmin();
-    const { data, error } = await supa.from("comments").select("tenant_id, comment");
-    if (error) throw error;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("session")?.value ?? null;
+    const sess = await readSession(token);
+    if (!sess) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
-    const items: Record<string, string> = {};
-    for (const row of data ?? []) items[row.tenant_id] = row.comment ?? "";
+    const sb = sbServer();
+    const { data, error } = await sb.from("comments").select("key, comment");
+    if (error) throw new Error(error.message);
 
-    const payload: Payload = { version: 1, items };
-    return NextResponse.json(payload);
-  } catch (e: any) {
-    console.error("[/api/comments] GET", e);
-    return NextResponse.json({ ok: false, error: e?.message ?? String(e) }, { status: 500 });
+    const items = Object.fromEntries(
+      (data ?? []).map((r: { key: string; comment: string | null }) => [r.key, r.comment ?? ""])
+    );
+
+    return NextResponse.json({ items });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 export async function PUT(req: Request) {
   try {
-    const { key, comment, updated_by } = await req.json();
-    if (typeof key !== "string" || typeof comment !== "string") {
-      return NextResponse.json({ ok: false, error: "Invalid body" }, { status: 400 });
-    }
+    const cookieStore = await cookies();
+    const token = cookieStore.get("session")?.value ?? null;
+    const sess = await readSession(token);
+    if (!sess) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
-    const supa = supabaseAdmin();
-    const { error } = await supa
-      .from("comments")
-      .upsert(
-        [{ tenant_id: key, comment, updated_by }],
-        { onConflict: "tenant_id" }
-      );
-    if (error) throw error;
+    const { key, comment } = (await req.json()) as { key: string; comment: string };
+    if (!key) return NextResponse.json({ error: "missing key" }, { status: 400 });
+
+    const sb = sbServer();
+    const { error } = await sb.from("comments").upsert({ key, comment });
+    if (error) throw new Error(error.message);
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    console.error("[/api/comments] PUT", e);
-    return NextResponse.json({ ok: false, error: e?.message ?? String(e) }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

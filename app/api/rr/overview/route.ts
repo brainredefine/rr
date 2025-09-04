@@ -35,15 +35,17 @@ export async function GET() {
     const month = process.env.DATA_MONTH ?? "2025-09";
 
     // Chargements
-    const owners = loadBridgeAssets(); // { "AA1":"CFR", ... }
+    const ownersRaw = loadBridgeAssets();
+    const owners = ownersRaw as Record<string, string>; // helper d'indexation
     const tn = makeTenantNormalizer(loadBridgeTenants());
 
     const amAll = loadCsv("am", month);
     const pmAll = loadCsv("pm", month);
 
     // Filtrage par AM (si pas ADMIN)
+    const ownerOf = (code: string) => owners[code] ?? "";
     const byOwner = (rows: Row[]) =>
-      sess.am === "ADMIN" ? rows : rows.filter(r => owners[(r.asset_code ?? "").trim()] === sess.am);
+      sess.am === "ADMIN" ? rows : rows.filter((r) => ownerOf((r.asset_code ?? "").trim()) === sess.am);
 
     const amRows = byOwner(amAll);
     const pmRows = byOwner(pmAll);
@@ -113,16 +115,16 @@ export async function GET() {
       const rp = Number(pm?.rent_eur_pa ?? 0);
       if (ra === 0 && rp === 0) continue;
 
-      const delta_gla = (Number(am?.gla_m2 ?? 0) - Number(pm?.gla_m2 ?? 0));
-      const delta_rent = (Number(am?.rent_eur_pa ?? 0) - Number(pm?.rent_eur_pa ?? 0));
-      const delta_walt = (Number(am?.walt_years ?? 0) - Number(pm?.walt_years ?? 0));
+      const delta_gla = Number(am?.gla_m2 ?? 0) - Number(pm?.gla_m2 ?? 0);
+      const delta_rent = Number(am?.rent_eur_pa ?? 0) - Number(pm?.rent_eur_pa ?? 0);
+      const delta_walt = Number(am?.walt_years ?? 0) - Number(pm?.walt_years ?? 0);
 
       const baseG = Number(pm?.gla_m2 ?? 0);
       const baseR = Number(pm?.rent_eur_pa ?? 0);
       const gla_pct = baseG ? delta_gla / baseG : 0;
       const rent_pct = baseR ? delta_rent / baseR : 0;
 
-      // Statut (seuils simples & lisibles)
+      // Statut
       let status: DiffLine["status"];
       if (!am && pm) status = "missing_on_am";
       else if (am && !pm) status = "missing_on_pm";
@@ -171,8 +173,9 @@ export async function GET() {
 
     const payload: DiffResult = { kpis, lines };
     return NextResponse.json(payload);
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e); // ← clé avec unknown
     console.error("[/api/rr/overview] ERROR:", e);
-    return NextResponse.json({ ok: false, error: e?.message ?? "error" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

@@ -32,28 +32,24 @@ const fmt2 = (v: number | undefined | null) =>
     ? "-"
     : new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
 
-    const fmtDateEU = (s?: string | null) => {
+const fmtDateEU = (s?: string | null) => {
   if (!s) return "-";
   const t = String(s).trim();
   if (!t) return "-";
 
-  // uniformise les séparateurs
   const parts = t.replace(/[-.\s]+/g, "/").split("/");
   const nums = parts.map((p) => parseInt(p, 10)).filter((n) => Number.isFinite(n));
   if (nums.length !== 3) return "-";
 
-  let [a, b, c] = nums;
+  const [a, b, c] = nums; // prefer-const ✅
   let d = 1, m = 1, y = 2000;
 
-  // si AAAA est en 1ère ou 3e position
   if (String(parts[0]).length === 4) {
     y = a; m = b; d = c;                   // yyyy/mm/dd
   } else if (String(parts[2]).length === 4) {
     y = c;
-    // heuristique : privilégie DD/MM
     if (a > 12 || b <= 12) { d = a; m = b; } else { m = a; d = b; }
   } else {
-    // cas 2 chiffres pour l'année
     y = c + (c < 100 ? (c >= 70 ? 1900 : 2000) : 0);
     if (a > 12 || b <= 12) { d = a; m = b; } else { m = a; d = b; }
   }
@@ -64,8 +60,6 @@ const fmt2 = (v: number | undefined | null) =>
   return `${dd}/${mm}/${yyyy}`;
 };
 
-
-
 const norm = (s: string | undefined | null) =>
   (s ?? "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
@@ -73,7 +67,7 @@ export default function LeasesClient() {
   const [data, setData] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [query, setQuery] = useState(""); // filtre asset/tenant
+  const [query, setQuery] = useState(""); // filtre asset/tenant/note
 
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -91,9 +85,10 @@ export default function LeasesClient() {
         const n = await resNotes.json();
         setData(leases);
         setNotes(n?.items ?? {});
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
         console.error("init error:", e);
-        setError(e?.message ?? "Network error");
+        setError(msg || "Network error");
       }
     })();
   }, []);
@@ -107,7 +102,7 @@ export default function LeasesClient() {
         body: JSON.stringify({ key, comment }),
       });
       if (!res.ok) console.error("saveNote failed", res.status, await res.text());
-    } catch (e) {
+    } catch (e: unknown) {
       console.error("saveNote error", e);
     } finally {
       setSaving((s) => ({ ...s, [key]: false }));
@@ -118,25 +113,20 @@ export default function LeasesClient() {
   if (!data) return <p className="p-4">Chargement…</p>;
 
   const qn = norm(query);
-const lines = (data.lines ?? []).filter((l) => {
-  if (!qn) return true;
-
-  const assetMatch  = norm(l.asset).includes(qn);
-  const label       = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
-  const tenantMatch = norm(label).includes(qn);
-
-  const note        = notes[l.tenantId] ?? "";
-  const noteMatch   = norm(note).includes(qn);
-
-  return assetMatch || tenantMatch || noteMatch;
-});
-
+  const lines = (data.lines ?? []).filter((l) => {
+    if (!qn) return true;
+    const assetMatch  = norm(l.asset).includes(qn);
+    const label       = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
+    const tenantMatch = norm(label).includes(qn);
+    const note        = notes[l.tenantId] ?? "";
+    const noteMatch   = norm(note).includes(qn);
+    return assetMatch || tenantMatch || noteMatch;
+  });
 
   const rentFiltered = lines.reduce((s, l) => s + (Number(l.rent_eur_pa) || 0), 0);
 
-  // on reprend l’alignement centré pour les numériques
   const num = "text-center";
-  const V = "border-l border-black"; // si tu veux remettre des traits, par ex. avant GLA
+  const V = "border-l border-black";
 
   return (
     <div className="p-6">
@@ -161,22 +151,22 @@ const lines = (data.lines ?? []).filter((l) => {
         </div>
       </div>
 
-{data.kpis ? (
-  <div className="mb-4 flex flex-wrap items-center gap-3">
-    <div className="mX-auto flex flex-wrap gap-6 text-sm">
-      <div>Résultats: {fmtInt(lines.length)}</div>
-      <div>Rent (filtres): {fmtInt(rentFiltered)} €</div>
-    </div>
-  </div>
-) : (
-  <div className="mb-4 flex flex-wrap items-center gap-3">
-    <div className="text-sm text-gray-400">KPIs indisponibles.</div>
-    <div className="mx-auto flex flex-wrap gap-6 text-sm">
-      <div>Résultats: {fmtInt(lines.length)}</div>
-      <div>Rent (filtres): {fmtInt(rentFiltered)} €</div>
-    </div>
-  </div>
-)}
+      {data.kpis ? (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="mx-auto flex flex-wrap gap-6 text-sm">{/* ← mX-auto -> mx-auto */}
+            <div>Résultats: {fmtInt(lines.length)}</div>
+            <div>Rent (filtres): {fmtInt(rentFiltered)} €</div>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="text-sm text-gray-400">KPIs indisponibles.</div>
+          <div className="mx-auto flex flex-wrap gap-6 text-sm">
+            <div>Résultats: {fmtInt(lines.length)}</div>
+            <div>Rent (filtres): {fmtInt(rentFiltered)} €</div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
@@ -195,12 +185,12 @@ const lines = (data.lines ?? []).filter((l) => {
             </tr>
           </thead>
           <tbody>
-            {lines.map((l, i) => {
+            {lines.map((l) => {
               const key = l.tenantId;
               const val = notes[key] ?? "";
               const savingThis = !!saving[key];
               return (
-                <tr key={i} className="text-gray-900">
+                <tr key={key} className="text-gray-900">
                   <td className="p-2 whitespace-nowrap" style={{ width: "5%" }}>{l.asset}</td>
                   <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>{l.tenantLabel ?? prettyFromTenantId(l.tenantId)}</td>
                   <td className={`p-2 ${num} ${V}`}>{fmtInt(l.gla_m2)}</td>
@@ -217,7 +207,9 @@ const lines = (data.lines ?? []).filter((l) => {
                       value={val}
                       onChange={(e) => setNotes((m) => ({ ...m, [key]: e.target.value }))}
                       onBlur={() => saveNote(key, notes[key] ?? "")}
-                      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      }}
                     />
                   </td>
                 </tr>
