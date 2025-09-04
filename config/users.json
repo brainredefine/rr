@@ -1,0 +1,8 @@
+{
+  "users": [
+    { "user": "CFR", "pass": "Christian", "am": "CFR" },
+    { "user": "FKE", "pass": "Fabian", "am": "FKE" },
+    { "user": "BKO", "pass": "Benita", "am": "BKO" },
+    { "user": "MSC", "pass": "Markus", "am": "MSC" }
+  ]
+}
