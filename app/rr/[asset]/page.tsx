@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Side = { gla_m2: number; rent_eur_pa: number; walt_years: number };
-type Status =
-  | "match"
-  | "minor_mismatch"
-  | "major_mismatch"
-  | "missing_on_am"
-  | "missing_on_pm";
+type Status = "match" | "minor_mismatch" | "major_mismatch" | "missing_on_am" | "missing_on_pm";
 
 type DiffLine = {
   tenantId: string;
@@ -36,13 +31,15 @@ const fmt1 = (v: number | undefined | null) =>
     : new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(v));
 
 export default function AssetDetailPage() {
-  const { asset } = useParams<{ asset: string }>();
+  const params = useParams<{ asset: string }>();
+  const asset = params?.asset;
   const [data, setData] = useState<DiffResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     if (!asset) return;
+
     (async () => {
       try {
         const res = await fetch(`/api/rr/${asset}`);
@@ -53,6 +50,7 @@ export default function AssetDetailPage() {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -86,7 +84,7 @@ export default function AssetDetailPage() {
           </tr>
         </thead>
         <tbody>
-          {data.lines.map((l: DiffLine, i: number) => (
+          {data.lines.map((l, i) => (
             <tr key={i} className={statusColor(l.status)}>
               <td className="border p-1">{l.tenantLabel ?? l.tenantId}</td>
               <td className="border p-1 text-center">{fmtInt(l.am?.gla_m2)}</td>
