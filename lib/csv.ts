@@ -1,24 +1,26 @@
 // lib/csv.ts
 import { parse } from "csv-parse/sync";
 import * as XLSX from "xlsx";
-import * as iconv from "iconv-lite"; // ⬅️ nouveau
+import * as iconv from "iconv-lite";
 import type { Row } from "./types";
 
-function toNum(v: any): number {
+type AnyRec = Record<string, unknown>;
+
+function toNum(v: unknown): number {
   if (v == null) return 0;
   const s = String(v).trim().replace(/\u00A0/g, " "); // no-break space
-  // remplace virgule décimale par point
-  const n = Number(s.replace(",", "."));
+  const n = Number(s.replace(",", ".")); // virgule -> point
   return Number.isFinite(n) ? n : 0;
 }
 
-function normalizeHeaders(rec: Record<string, any>): Record<string, any> {
-  const out: Record<string, any> = {};
+function getStr(o: AnyRec, key: string): string {
+  return String(o[key] ?? "").trim();
+}
+
+function normalizeHeaders(rec: AnyRec): AnyRec {
+  const out: AnyRec = {};
   for (const k of Object.keys(rec)) {
-    const nk = k
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "_");
+    const nk = k.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "_");
     out[nk] = rec[k];
   }
   return out;
@@ -27,40 +29,40 @@ function normalizeHeaders(rec: Record<string, any>): Record<string, any> {
 function decodeToUtf8(buf: Buffer): string {
   // 1) Essaye UTF-8
   let s = buf.toString("utf8");
-  // Si le décodage a produit des caractères de remplacement, essaie Win-1252
+  // 2) Si caractères de remplacement, tente Windows-1252
   if (s.includes("\uFFFD")) {
     try {
-      s = iconv.decode(buf, "win1252");
+      s = iconv.decode(buf, "win1252"); // alias de "windows-1252"
     } catch {
-      // ignore, on gardera la version UTF-8 si ça plante
+      // garde la version UTF-8 si ça plante
     }
   }
-  // Normalise Unicode (évite les équivalents combinés vs précomposés)
+  // 3) Normalise Unicode
   return s.normalize("NFC");
- }
-
+}
 
 export function parseCsvString(input: string): Row[] {
-  const recs = parse(input, {
+  const recs = parse<AnyRec>(input, {
     columns: true,
     skip_empty_lines: true,
     trim: true,
     delimiter: [",", ";", "\t"],
     relax_column_count: true,
-  }) as Record<string, any>[];
+  });
 
   const out: Row[] = [];
   for (const r0 of recs) {
     const r = normalizeHeaders(r0);
-    const asset_code = String(r.asset_code ?? "").trim();
-    const tenant_name = String(r.tenant_name ?? "").trim();
+    const asset_code = getStr(r, "asset_code");
+    const tenant_name = getStr(r, "tenant_name");
     if (!asset_code || !tenant_name) continue;
+
     out.push({
       asset_code,
       tenant_name,
-      gla_m2: toNum(r.gla_m2),
-      rent_eur_pa: toNum(r.rent_eur_pa),
-      walt_years: toNum(r.walt_years),
+      gla_m2: toNum(r["gla_m2"]),
+      rent_eur_pa: toNum(r["rent_eur_pa"]),
+      walt_years: toNum(r["walt_years"]),
     });
   }
   return out;
@@ -69,24 +71,25 @@ export function parseCsvString(input: string): Row[] {
 export function parseXlsxBuffer(buf: Buffer): Row[] {
   const wb = XLSX.read(buf, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const recs = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false }) as Record<string, any>[];
+  const recs = XLSX.utils.sheet_to_json<AnyRec>(ws, { defval: "", raw: false });
 
   const out: Row[] = [];
   for (const r0 of recs) {
     const r = normalizeHeaders(r0);
-    const asset_code = String(r.asset_code ?? "").trim();
-    const tenant_name = String(r.tenant_name ?? "").trim();
+    const asset_code = getStr(r, "asset_code");
+    const tenant_name = getStr(r, "tenant_name");
     if (!asset_code || !tenant_name) continue;
+
     out.push({
       asset_code,
       tenant_name,
-      gla_m2: toNum(r.gla_m2),
-      rent_eur_pa: toNum(r.rent_eur_pa),
-      walt_years: toNum(r.walt_years),
-      lease_start: String(r.lease_start ?? "").trim(),
-      lease_end: String(r.lease_end ?? "").trim(),
-      options_text: String(r.options ?? r.options_text ?? "").trim(),
-      psm: toNum(r.psm),
+      gla_m2: toNum(r["gla_m2"]),
+      rent_eur_pa: toNum(r["rent_eur_pa"]),
+      walt_years: toNum(r["walt_years"]),
+      lease_start: getStr(r, "lease_start"),
+      lease_end: getStr(r, "lease_end"),
+      options_text: getStr(r, "options") || getStr(r, "options_text"),
+      psm: toNum(r["psm"]),
     });
   }
   return out;
@@ -96,18 +99,16 @@ export function parseXlsxBuffer(buf: Buffer): Row[] {
 export function parseTabularFile(input: Buffer | string, filename: string): Row[] {
   const lower = filename.toLowerCase();
   const isXlsxExt = lower.endsWith(".xlsx");
-  const isCsvExt = lower.endsWith(".csv");
 
   if (typeof input !== "string") {
     const isZipHeader = input.length >= 4 && input[0] === 0x50 && input[1] === 0x4b; // "PK"
     if (isXlsxExt || isZipHeader) return parseXlsxBuffer(input);
-    // ⬇️ CSV binaire: décode intelligemment vers UTF-8 (UTF-8 sinon fallback Win-1252)
+    // CSV binaire: décode intelligemment vers UTF-8 (fallback Win-1252)
     const text = decodeToUtf8(input);
     return parseCsvString(text);
   } else {
-    // ⬇️ CSV déjà texte: normalise Unicode
+    // CSV déjà texte: normalise Unicode
     const text = input.normalize("NFC");
     return parseCsvString(text);
   }
 }
-
