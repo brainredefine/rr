@@ -1,46 +1,31 @@
+// app/api/comments/route.ts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-type CommentRow = { key: string; comment: string | null; updated_by?: string | null };
+type CommentRow = { key: string; comment: string | null };
 
 export async function GET() {
-  try {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb.from("comments").select("key, comment");
-    if (error) throw error;
-
-    const items = Object.fromEntries(((data as CommentRow[]) ?? []).map(r => [r.key, r.comment ?? ""]));
-    return NextResponse.json({ items });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[/api/comments] GET:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+  const supa = supabaseAdmin();
+  const { data, error } = await supa.from("comments").select("key, comment");
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const items = Object.fromEntries((data ?? []).map((r: CommentRow) => [r.key, r.comment ?? ""]));
+  return NextResponse.json({ items });
 }
 
 export async function PUT(req: Request) {
-  try {
-    const body = await req.json() as { key?: unknown; comment?: unknown; updated_by?: unknown };
-    if (typeof body.key !== "string" || typeof body.comment !== "string") {
-      return NextResponse.json({ error: "invalid body" }, { status: 400 });
-    }
+  let body: unknown;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "invalid JSON" }, { status: 400 }); }
+  const { key, comment } = body as { key?: string; comment?: string };
+  if (!key) return NextResponse.json({ error: "missing key" }, { status: 400 });
 
-    const sb = supabaseAdmin();
-    const { error } = await sb
-      .from("comments")
-      .upsert(
-        [{ key: body.key, comment: body.comment, updated_by: typeof body.updated_by === "string" ? body.updated_by : null }],
-        { onConflict: "key" }
-      );
-    if (error) throw error;
+  const supa = supabaseAdmin();
+  const { error } = await supa
+    .from("comments")
+    .upsert({ key, comment: comment ?? "" }, { onConflict: "key" });
 
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[/api/comments] PUT:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
