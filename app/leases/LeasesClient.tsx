@@ -1,3 +1,4 @@
+// app/leases/LeasesClient.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -36,24 +37,14 @@ const fmtDateEU = (s?: string | null) => {
   if (!s) return "-";
   const t = String(s).trim();
   if (!t) return "-";
-
   const parts = t.replace(/[-.\s]+/g, "/").split("/");
   const nums = parts.map((p) => parseInt(p, 10)).filter((n) => Number.isFinite(n));
   if (nums.length !== 3) return "-";
-
-  const [a, b, c] = nums; // prefer-const ✅
+  const [a, b, c] = nums;
   let d = 1, m = 1, y = 2000;
-
-  if (String(parts[0]).length === 4) {
-    y = a; m = b; d = c;                   // yyyy/mm/dd
-  } else if (String(parts[2]).length === 4) {
-    y = c;
-    if (a > 12 || b <= 12) { d = a; m = b; } else { m = a; d = b; }
-  } else {
-    y = c + (c < 100 ? (c >= 70 ? 1900 : 2000) : 0);
-    if (a > 12 || b <= 12) { d = a; m = b; } else { m = a; d = b; }
-  }
-
+  if (String(parts[0]).length === 4) { y = a; m = b; d = c; }            // yyyy/mm/dd
+  else if (String(parts[2]).length === 4) { y = c; d = a > 12 || b <= 12 ? a : b; m = a > 12 || b <= 12 ? b : a; }
+  else { y = c + (c < 100 ? (c >= 70 ? 1900 : 2000) : 0); d = a > 12 || b <= 12 ? a : b; m = a > 12 || b <= 12 ? b : a; }
   const dd = String(Math.max(1, Math.min(31, d))).padStart(2, "0");
   const mm = String(Math.max(1, Math.min(12, m))).padStart(2, "0");
   const yyyy = String(y).padStart(4, "0");
@@ -63,11 +54,17 @@ const fmtDateEU = (s?: string | null) => {
 const norm = (s: string | undefined | null) =>
   (s ?? "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
+function prettyFromTenantId(tenantId: string) {
+  const [, slugMaybe] = tenantId.split("::");
+  const slug = slugMaybe ?? tenantId;
+  return slug.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function LeasesClient() {
   const [data, setData] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [query, setQuery] = useState(""); // filtre asset/tenant/note
+  const [query, setQuery] = useState("");
 
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -75,20 +72,15 @@ export default function LeasesClient() {
   useEffect(() => {
     (async () => {
       try {
-        const [resLease, resNotes] = await Promise.all([
-          fetch("/api/leases"),
-          fetch("/api/notes"),
-        ]);
+        const [resLease, resNotes] = await Promise.all([fetch("/api/leases"), fetch("/api/notes")]);
         if (!resLease.ok) throw new Error(`/api/leases ${resLease.status}`);
         if (!resNotes.ok) throw new Error(`/api/notes ${resNotes.status}`);
         const leases = (await resLease.json()) as Result;
         const n = await resNotes.json();
         setData(leases);
         setNotes(n?.items ?? {});
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error("init error:", e);
-        setError(msg || "Network error");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
       }
     })();
   }, []);
@@ -102,28 +94,27 @@ export default function LeasesClient() {
         body: JSON.stringify({ key, comment }),
       });
       if (!res.ok) console.error("saveNote failed", res.status, await res.text());
-    } catch (e: unknown) {
-      console.error("saveNote error", e);
     } finally {
       setSaving((s) => ({ ...s, [key]: false }));
     }
   }
 
-  if (error) return <p className="p-4 text-red-400 md:text-red-500">Erreur: {error}</p>;
+  if (error) return <p className="p-4 text-red-500">Erreur: {error}</p>;
   if (!data) return <p className="p-4">Chargement…</p>;
 
   const qn = norm(query);
-  const lines = (data.lines ?? []).filter((l) => {
+
+  // ⬇️ use the filtered list both for KPIs and table
+  const linesFiltered = (data.lines ?? []).filter((l) => {
     if (!qn) return true;
-    const assetMatch  = norm(l.asset).includes(qn);
-    const label       = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
+    const assetMatch = norm(l.asset).includes(qn);
+    const label = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
     const tenantMatch = norm(label).includes(qn);
-    const note        = notes[l.tenantId] ?? "";
-    const noteMatch   = norm(note).includes(qn);
+    const noteMatch = norm(notes[l.tenantId] ?? "").includes(qn);
     return assetMatch || tenantMatch || noteMatch;
   });
 
-  const rentFiltered = lines.reduce((s, l) => s + (Number(l.rent_eur_pa) || 0), 0);
+  const rentFiltered = linesFiltered.reduce((s, l) => s + (Number(l.rent_eur_pa) || 0), 0);
 
   const num = "text-center";
   const V = "border-l border-black";
@@ -136,7 +127,7 @@ export default function LeasesClient() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher (asset ou tenant ou note)…"
+            placeholder="Rechercher (asset, tenant, note)…"
             className="w-64 rounded-md border border-gray-300 bg-white/90 px-3 py-1.5 text-sm text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-blue-300"
           />
           {query && (
@@ -151,22 +142,10 @@ export default function LeasesClient() {
         </div>
       </div>
 
-      {data.kpis ? (
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="mx-auto flex flex-wrap gap-6 text-sm">{/* ← mX-auto -> mx-auto */}
-            <div>Résultats: {fmtInt(lines.length)}</div>
-            <div>Rent (filtres): {fmtInt(rentFiltered)} €</div>
-          </div>
-        </div>
-      ) : (
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="text-sm text-gray-400">KPIs indisponibles.</div>
-          <div className="mx-auto flex flex-wrap gap-6 text-sm">
-            <div>Résultats: {fmtInt(lines.length)}</div>
-            <div>Rent (filtres): {fmtInt(rentFiltered)} €</div>
-          </div>
-        </div>
-      )}
+      <div className="mb-4 flex flex-wrap items-center gap-6 text-sm">
+        <div>Résultats: {fmtInt(linesFiltered.length)}</div>
+        <div>Rent (filtres): {fmtInt(rentFiltered)} €</div>
+      </div>
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
@@ -185,9 +164,8 @@ export default function LeasesClient() {
             </tr>
           </thead>
           <tbody>
-            {lines.map((l) => {
+            {linesFiltered.map((l) => {
               const key = l.tenantId;
-              const val = notes[key] ?? "";
               const savingThis = !!saving[key];
               return (
                 <tr key={key} className="text-gray-900">
@@ -204,18 +182,16 @@ export default function LeasesClient() {
                     <input
                       className={`w-full rounded border px-2 py-1 outline-none focus:ring-2 focus:ring-blue-300 ${savingThis ? "opacity-60" : ""}`}
                       placeholder="Ajouter une note…"
-                      value={val}
+                      value={notes[key] ?? ""}
                       onChange={(e) => setNotes((m) => ({ ...m, [key]: e.target.value }))}
                       onBlur={() => saveNote(key, notes[key] ?? "")}
-                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                     />
                   </td>
                 </tr>
               );
             })}
-            {lines.length === 0 && (
+            {linesFiltered.length === 0 && (
               <tr>
                 <td className="p-3 text-gray-500" colSpan={10}>Aucune ligne.</td>
               </tr>
@@ -225,10 +201,4 @@ export default function LeasesClient() {
       </div>
     </div>
   );
-}
-
-function prettyFromTenantId(tenantId: string) {
-  const [, slugMaybe] = tenantId.split("::");
-  const slug = slugMaybe ?? tenantId;
-  return slug.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
