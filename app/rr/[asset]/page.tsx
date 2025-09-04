@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Side = { gla_m2: number; rent_eur_pa: number; walt_years: number };
-type Status = "match" | "minor_mismatch" | "major_mismatch" | "missing_on_am" | "missing_on_pm";
+type Status =
+  | "match"
+  | "minor_mismatch"
+  | "major_mismatch"
+  | "missing_on_am"
+  | "missing_on_pm";
 
 type DiffLine = {
   tenantId: string;
@@ -31,15 +36,13 @@ const fmt1 = (v: number | undefined | null) =>
     : new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(v));
 
 export default function AssetDetailPage() {
-  const params = useParams<{ asset: string }>();
-  const asset = params?.asset;
+  const { asset } = useParams<{ asset: string }>();
   const [data, setData] = useState<DiffResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     if (!asset) return;
-
     (async () => {
       try {
         const res = await fetch(`/api/rr/${asset}`);
@@ -50,7 +53,6 @@ export default function AssetDetailPage() {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
     })();
-
     return () => {
       cancelled = true;
     };
