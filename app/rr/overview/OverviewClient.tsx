@@ -53,24 +53,37 @@ export default function OverviewClient() {
   const [comments, setComments] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [resDiff, resComments] = await Promise.all([fetch("/api/rr/overview"), fetch("/api/comments")]);
-        if (!resDiff.ok) throw new Error(`/api/rr/overview ${resDiff.status}`);
-        if (!resComments.ok) throw new Error(`/api/comments ${resComments.status}`);
+useEffect(() => {
+  (async () => {
+    try {
+      // 1) données diff obligatoires
+      const resDiff = await fetch("/api/rr/overview");
+      if (!resDiff.ok) throw new Error(`/api/rr/overview ${resDiff.status}`);
+      const diff = (await resDiff.json()) as DiffResult;
+      setData(diff);
+    } catch (e) {
+      console.error("init /api/rr/overview error:", e);
+      setError(e instanceof Error ? e.message : String(e));
+      return; // stop ici si le core échoue
+    }
 
-        const diff = (await resDiff.json()) as DiffResult;
-        const comm = (await resComments.json()) as { items?: Record<string, string> };
-
-        setData(diff);
+    // 2) commentaires : best-effort
+    try {
+      const resComments = await fetch("/api/comments");
+      if (!resComments.ok) {
+        console.warn("/api/comments failed:", resComments.status);
+        setComments({}); // ne bloque pas l’UI
+      } else {
+        const comm = await resComments.json();
         setComments(comm?.items ?? {});
-      } catch (e: unknown) {
-        console.error("init error:", e);
-        setError(errMsg(e) || "Network error");
       }
-    })();
-  }, []);
+    } catch (e) {
+      console.warn("/api/comments fetch error:", e);
+      setComments({});
+    }
+  })();
+}, []);
+
 
   async function saveComment(key: string, comment: string) {
     try {
