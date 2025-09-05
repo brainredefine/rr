@@ -42,7 +42,7 @@ const fmtDateEU = (s?: string | null) => {
   if (nums.length !== 3) return "-";
   const [a, b, c] = nums;
   let d = 1, m = 1, y = 2000;
-  if (String(parts[0]).length === 4) { y = a; m = b; d = c; }            // yyyy/mm/dd
+  if (String(parts[0]).length === 4) { y = a; m = b; d = c; }
   else if (String(parts[2]).length === 4) { y = c; d = a > 12 || b <= 12 ? a : b; m = a > 12 || b <= 12 ? b : a; }
   else { y = c + (c < 100 ? (c >= 70 ? 1900 : 2000) : 0); d = a > 12 || b <= 12 ? a : b; m = a > 12 || b <= 12 ? b : a; }
   const dd = String(Math.max(1, Math.min(31, d))).padStart(2, "0");
@@ -61,26 +61,29 @@ function prettyFromTenantId(tenantId: string) {
 }
 
 export default function LeasesClient() {
+  // state
   const [data, setData] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   const [query, setQuery] = useState("");
-
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
+  // fetch
   useEffect(() => {
     (async () => {
       try {
-        const [resLease, resNotes] = await Promise.all([fetch("/api/leases"), fetch("/api/notes")]);
+        const [resLease, resNotes] = await Promise.all([
+          fetch("/api/leases"),
+          fetch("/api/notes"),
+        ]);
         if (!resLease.ok) throw new Error(`/api/leases ${resLease.status}`);
-        const leases = (await resLease.json()) as Result;
+        const leases: Result = await resLease.json();
 
-        let commItems: Record<string, string> = {};
+        let personal: Record<string, string> = {};
         try {
           if (resNotes.ok) {
             const n = await resNotes.json();
-            commItems = n?.items ?? {};
+            personal = n?.items ?? {};
           } else {
             console.warn("/api/notes failed:", resNotes.status);
           }
@@ -89,14 +92,15 @@ export default function LeasesClient() {
         }
 
         setData(leases);
-        setNotes(commItems);
+        setNotes(personal);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       }
     })();
   }, []);
 
-  async function saveNote(key: string, comment: string) {
+  // save note (dans la portée du composant)
+  const saveNote = async (key: string, comment: string) => {
     try {
       setSaving((s) => ({ ...s, [key]: true }));
       const res = await fetch("/api/notes", {
@@ -108,16 +112,14 @@ export default function LeasesClient() {
     } finally {
       setSaving((s) => ({ ...s, [key]: false }));
     }
-  }
+  };
 
-  if (error) return <p className="p-4 text-red-500">Erreur: {error}</p>;
-  if (!data) return <p className="p-4">Chargement…</p>;
-
+  // derived
   const qn = norm(query.trim());
 
-  // ✅ liste filtrée stable
+  // ✅ filtre par asset / tenant / commentaire (notes)
   const linesFiltered = useMemo(() => {
-    const base = data.lines ?? [];
+    const base = data?.lines ?? [];
     if (!qn) return base;
     return base.filter((l) => {
       const assetMatch = norm(l.asset).includes(qn);
@@ -126,13 +128,18 @@ export default function LeasesClient() {
       const noteMatch = norm(notes[l.tenantId] ?? "").includes(qn);
       return assetMatch || tenantMatch || noteMatch;
     });
-  }, [data.lines, notes, qn]);
+  }, [data?.lines, notes, qn]);
 
   const rentFiltered = useMemo(
     () => linesFiltered.reduce((s, l) => s + (Number(l.rent_eur_pa) || 0), 0),
     [linesFiltered]
   );
 
+  // early returns
+  if (error) return <p className="p-4 text-red-500">Erreur: {error}</p>;
+  if (!data) return <p className="p-4">Chargement…</p>;
+
+  // UI
   const num = "text-center";
   const V = "border-l border-black";
 
@@ -182,10 +189,13 @@ export default function LeasesClient() {
           </thead>
           <tbody>
             {linesFiltered.map((l, i) => {
-              const key = l.tenantId;
-              const savingThis = !!saving[key];
+              // clé unique (évite les collisions en cas de lignes dupliquées pour un tenant)
+              const rowKey = `${l.asset}::${l.tenantId}::${l.gla_m2 ?? ""}::${l.lease_start ?? ""}::${l.lease_end ?? ""}::${i}`;
+              const noteKey = l.tenantId; // même note pour toutes les lignes du même tenant
+              const savingThis = !!saving[noteKey];
+
               return (
-                <tr key={`${key}-${i}`} className="text-gray-900">
+                <tr key={rowKey} className="text-gray-900">
                   <td className="p-2 whitespace-nowrap" style={{ width: "5%" }}>{l.asset}</td>
                   <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>
                     {l.tenantLabel ?? prettyFromTenantId(l.tenantId)}
@@ -201,10 +211,12 @@ export default function LeasesClient() {
                     <input
                       className={`w-full rounded border px-2 py-1 outline-none focus:ring-2 focus:ring-blue-300 ${savingThis ? "opacity-60" : ""}`}
                       placeholder="Ajouter une note…"
-                      value={notes[key] ?? ""}
-                      onChange={(e) => setNotes((m) => ({ ...m, [key]: e.target.value }))}
-                      onBlur={() => saveNote(key, notes[key] ?? "")}
-                      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                      value={notes[noteKey] ?? ""}
+                      onChange={(e) => setNotes((m) => ({ ...m, [noteKey]: e.target.value }))}
+                      onBlur={() => saveNote(noteKey, notes[noteKey] ?? "")}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      }}
                     />
                   </td>
                 </tr>
