@@ -1,5 +1,6 @@
+// app/api/notes/route.ts
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic"; // pas de cache pour tes CSV/XLSX
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -9,6 +10,10 @@ import { loadBridgeAssets } from "@/lib/fsdata";
 
 type NotesRow = { tenant_id: string; comment: string | null; updated_by: string };
 
+function isSuper(sess: { am?: string; u?: string } | null) {
+  return !!sess && (sess.am === "ADMIN" || sess.am === "MGA" || sess.u === "MGA");
+}
+
 export async function GET() {
   try {
     const cookieStore = await cookies();
@@ -16,6 +21,8 @@ export async function GET() {
     if (!sess) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
     const supa = supabaseAdmin();
+
+    // We still fetch only the current AM's notes (safe default).
     const { data, error } = await supa
       .from("comments_personal")
       .select("tenant_id, comment, updated_by")
@@ -44,17 +51,21 @@ export async function PUT(req: Request) {
       return NextResponse.json({ ok: false, error: "invalid body" }, { status: 400 });
     }
 
-    // sécurité : l'asset doit appartenir à l'AM courant (sauf ADMIN)
+    // Owner check (SUPER bypass)
     const asset = key.split("::")[0] ?? "";
-    const owners = loadBridgeAssets() as Record<string, string>; // aide pour l'indexation TS
-    if (sess.am !== "ADMIN" && owners[asset] !== sess.am) {
+    const owners = loadBridgeAssets() as Record<string, string>;
+    if (!isSuper(sess) && owners[asset] !== sess.am) {
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
     const supa = supabaseAdmin();
     const { error } = await supa
       .from("comments_personal")
-      .upsert({ tenant_id: key, comment, updated_by: sess.am }, { onConflict: "tenant_id" });
+      .upsert(
+        { tenant_id: key, comment, updated_by: sess.am },
+        // ✅ matches a unique constraint on `tenant_id` only
+        { onConflict: "tenant_id" }
+      );
 
     if (error) throw new Error(error.message);
 

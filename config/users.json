@@ -1,5 +1,6 @@
 {
   "users": [
+    { "user": "MGA", "pass": "Goat", "am": "MGA" },
     { "user": "CFR", "pass": "Christian", "am": "CFR" },
     { "user": "FKE", "pass": "Fabian", "am": "FKE" },
     { "user": "BKO", "pass": "Benita", "am": "BKO" },

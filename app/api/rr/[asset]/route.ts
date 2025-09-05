@@ -26,12 +26,17 @@ type DiffLine = {
   status: Status;
 };
 
+// 🔹 SUPER = ADMIN ou MGA (via am ou u)
+function isSuper(sess: { am?: string; u?: string } | null) {
+  return !!sess && (sess.am === "ADMIN" || sess.u === "MGA" || sess.am === "MGA");
+}
+
 export async function GET(
   _req: NextRequest,
-  context: { params: Promise<{ asset: string }> } // ← attendu par ton Next sur Vercel
+  context: { params: Promise<{ asset: string }> } // Vercel/Next 15 style
 ) {
   try {
-    const { asset } = await context.params; // ← on attend ici
+    const { asset } = await context.params;
 
     // Auth
     const cookieStore = await cookies();
@@ -45,10 +50,14 @@ export async function GET(
     const owners = loadBridgeAssets();
     const tn = makeTenantNormalizer(loadBridgeTenants());
 
+    // 🔐 1) Garde-fou: si pas SUPER, interdire si l'asset ne lui appartient pas
+    if (!isSuper(sess) && owners[asset] !== sess.am) {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    }
+
+    // 🔐 2) Filtrage par AM (les SUPER voient tout)
     const byOwner = (rows: Row[]) =>
-      sess.am === "ADMIN"
-        ? rows
-        : rows.filter((r) => owners[(r.asset_code ?? "").trim()] === sess.am);
+      isSuper(sess) ? rows : rows.filter((r) => owners[(r.asset_code ?? "").trim()] === sess.am);
 
     const amRows = byOwner(loadCsv("am", month)).filter(
       (r) => (r.asset_code ?? "").trim() === asset
@@ -118,9 +127,9 @@ export async function GET(
         key.split("::")[1]?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ??
         key;
 
-      const delta_gla = (Number(am?.gla_m2 ?? 0) - Number(pm?.gla_m2 ?? 0));
-      const delta_rent = (Number(am?.rent_eur_pa ?? 0) - Number(pm?.rent_eur_pa ?? 0));
-      const delta_walt = (Number(am?.walt_years ?? 0) - Number(pm?.walt_years ?? 0));
+      const delta_gla = Number(am?.gla_m2 ?? 0) - Number(pm?.gla_m2 ?? 0);
+      const delta_rent = Number(am?.rent_eur_pa ?? 0) - Number(pm?.rent_eur_pa ?? 0);
+      const delta_walt = Number(am?.walt_years ?? 0) - Number(pm?.walt_years ?? 0);
 
       const baseG = Number(pm?.gla_m2 ?? 0);
       const baseR = Number(pm?.rent_eur_pa ?? 0);

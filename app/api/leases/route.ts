@@ -1,5 +1,5 @@
+// app/api/leases/route.ts
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -10,8 +10,8 @@ import type { Row } from "@/lib/types";
 
 type Line = {
   asset: string;
-  tenantId: string;      // asset::slug
-  tenantLabel: string;   // ex: "Netto"
+  tenantId: string;
+  tenantLabel: string;
   gla_m2?: number;
   rent_eur_pa?: number;
   walt_years?: number;
@@ -25,6 +25,11 @@ type Result = {
   lines: Line[];
 };
 
+// 🔹 helper: MGA ou ADMIN voient tout
+function isSuper(sess: { am?: string; u?: string } | null) {
+  return !!sess && (sess.am === "ADMIN" || sess.u === "MGA" || sess.am === "MGA");
+}
+
 export async function GET() {
   try {
     const cookieStore = await cookies();
@@ -32,14 +37,14 @@ export async function GET() {
     const sess = await readSession(token);
     if (!sess) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
-    const month = "2025-09"; // ajuste au besoin
-    const amRows = loadCsv("am", month); // AM only
-    const owners = loadBridgeAssets();   // { "AA1":"CFR", ... }
+    const month = process.env.DATA_MONTH ?? "2025-09";
+    const amRows = loadCsv("am", month);
+    const owners = loadBridgeAssets();
 
-    // filtrage par AM côté serveur (sauf ADMIN)
-    const amFiltered = (sess.am === "ADMIN")
+    // 🔹 filtrage par AM (sauf SUPER)
+    const amFiltered = isSuper(sess)
       ? amRows
-      : amRows.filter(r => owners[(r.asset_code ?? "").trim()] === sess.am);
+      : amRows.filter((r) => owners[(r.asset_code ?? "").trim()] === sess.am);
 
     const tenantNormalizer = makeTenantNormalizer(loadBridgeTenants());
 
@@ -68,8 +73,8 @@ export async function GET() {
 
     const payload: Result = { kpis, lines };
     return NextResponse.json(payload);
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e); // <-- la clé
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error("[/api/leases] ERROR:", e);
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
