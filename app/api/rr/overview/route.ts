@@ -11,6 +11,7 @@ import type { Row } from "@/lib/types";
 
 type DiffLine = {
   asset: string;
+  city?: string; // ⬅️ NEW
   tenantId: string;
   tenantLabel: string;
   am?: { gla_m2: number; rent_eur_pa: number; walt_years: number };
@@ -41,14 +42,25 @@ export async function GET() {
     const tn = makeTenantNormalizer(loadBridgeTenants());
     const amAll = loadCsv("am", month);
     const pmAll = loadCsv("pm", month);
-
+    
     // 🔹 filtrage par AM (sauf SUPER)
     const byOwner = (rows: Row[]) =>
       isSuper(sess) ? rows : rows.filter((r) => owners[(r.asset_code ?? "").trim()] === sess.am);
 
     const amRows = byOwner(amAll);
     const pmRows = byOwner(pmAll);
-
+  // ⬇️ NEW: map asset → city (AM prioritaire)
+  const assetCity = new Map<string, string>();
+  for (const r of amRows) {
+    const a = (r.asset_code ?? "").trim();
+    const c = (r.city ?? "").trim();
+    if (a && c && !assetCity.has(a)) assetCity.set(a, c);
+  }
+  for (const r of pmRows) {
+    const a = (r.asset_code ?? "").trim();
+    const c = (r.city ?? "").trim();
+    if (a && c && !assetCity.has(a)) assetCity.set(a, c);
+  }
     type AggVal = {
       asset: string;
       slug: string;
@@ -96,6 +108,7 @@ export async function GET() {
       const a = amMap.get(key);
       const p = pmMap.get(key);
       const [asset] = key.split("::");
+      const city = assetCity.get(asset) ?? ""; // ⬅️ NEW
       const label =
         a?.label ??
         p?.label ??
@@ -118,7 +131,7 @@ export async function GET() {
       const baseR = Number(pm?.rent_eur_pa ?? 0);
       const gla_pct = baseG ? delta_gla / baseG : 0;
       const rent_pct = baseR ? delta_rent / baseR : 0;
-
+      
       let status: DiffLine["status"];
       if (!am && pm) status = "missing_on_am";
       else if (am && !pm) status = "missing_on_pm";
@@ -126,8 +139,8 @@ export async function GET() {
         const abs = Math.abs;
         const MINOR_PCT = 0.02;
         const MAJOR_PCT = 0.05;
-        const MINOR_WALT = 0.1;
-        const MAJOR_WALT = 0.5;
+        const MINOR_WALT = 1.5;
+        const MAJOR_WALT = 50;
         const misG = baseG ? abs(delta_gla) / baseG : 0;
         const misR = baseR ? abs(delta_rent) / baseR : 0;
         const misW = abs(delta_walt);
@@ -138,6 +151,7 @@ export async function GET() {
 
       lines.push({
         asset,
+        city, // ⬅️ NEW
         tenantId: key,
         tenantLabel: label,
         am,

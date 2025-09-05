@@ -60,6 +60,7 @@ export function parseCsvString(input: string): Row[] {
     out.push({
       asset_code,
       tenant_name,
+      city: String(r.city ?? "").trim(),
       gla_m2: toNum(r["gla_m2"]),
       rent_eur_pa: toNum(r["rent_eur_pa"]),
       walt_years: toNum(r["walt_years"]),
@@ -82,6 +83,7 @@ export function parseXlsxBuffer(buf: Buffer): Row[] {
 
     out.push({
       asset_code,
+      city: String(r.city ?? "").trim(),
       tenant_name,
       gla_m2: toNum(r["gla_m2"]),
       rent_eur_pa: toNum(r["rent_eur_pa"]),
@@ -90,6 +92,7 @@ export function parseXlsxBuffer(buf: Buffer): Row[] {
       lease_end: getStr(r, "lease_end"),
       options_text: getStr(r, "options") || getStr(r, "options_text"),
       psm: toNum(r["psm"]),
+
     });
   }
   return out;

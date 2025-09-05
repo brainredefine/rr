@@ -14,6 +14,7 @@ type Line = {
   lease_end?: string;
   options_text?: string;
   psm?: number;
+  city?: string; // ⬅️ NEW
 };
 type Result = {
   kpis?: { tenants_total: number; rent_sum: number };
@@ -123,6 +124,7 @@ export default function LeasesClient() {
     if (!qn) return base;
     return base.filter((l) => {
       const assetMatch  = norm(l.asset).includes(qn);
+      const cityMatch   = norm(l.city ?? "").includes(qn); // ⬅️ NEW
       const label       = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
       const tenantMatch = norm(label).includes(qn);
       const noteKey     = noteKeyOf(l);
@@ -178,6 +180,7 @@ export default function LeasesClient() {
           <thead className="bg-gray-50 text-gray-700">
             <tr>
               <th className="border-b p-2 text-left whitespace-nowrap" style={{ width: "1%" }}>Asset</th>
+              <th className="border-b p-2 text-left whitespace-nowrap" style={{ width: "1%" }}>City</th> {/* ⬅️ NEW */}
               <th className="border-b p-2 text-left whitespace-nowrap" style={{ width: "5%" }}>Tenant</th>
               <th className={`border-b p-2 ${num} ${V}`}>GLA</th>
               <th className={`border-b p-2 ${num}`}>Rent</th>
@@ -198,6 +201,7 @@ export default function LeasesClient() {
               return (
                 <tr key={rowKey} className="text-gray-900">
                   <td className="p-2 whitespace-nowrap" style={{ width: "5%" }}>{l.asset}</td>
+                  <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>{l.city || "-"}</td> {/* ⬅️ NEW */}
                   <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>
                     {l.tenantLabel ?? prettyFromTenantId(l.tenantId)}
                   </td>

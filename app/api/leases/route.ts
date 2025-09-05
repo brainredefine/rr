@@ -10,6 +10,7 @@ import type { Row } from "@/lib/types";
 
 type Line = {
   asset: string;
+  city?: string; // ⬅️ NEW
   tenantId: string;
   tenantLabel: string;
   gla_m2?: number;
@@ -54,6 +55,7 @@ export async function GET() {
       const label = tenantNormalizer.toCanonicalLabel(r.tenant_name ?? "");
       return {
         asset,
+        city: r.city ?? "", // ⬅️ NEW
         tenantId: `${asset}::${slug}`,
         tenantLabel: label,
         gla_m2: r.gla_m2,

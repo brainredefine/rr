@@ -17,7 +17,8 @@ export type Row = {
   lease_start?: string;   
   lease_end?: string;     
   options_text?: string;  
-  psm?: number;      
+  psm?: number;     
+  city?: string; // ⬅️ NEW 
 };
 
 export type BridgeTenantItem = {

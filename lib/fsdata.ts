@@ -44,3 +44,4 @@ export function loadCsv(kind: "am" | "pm", yyyymm: string): Row[] {
   // Si aucun fichier trouvé → erreur claire
   throw new Error(`Aucun fichier trouvé pour ${kind} ${yyyymm} (essayé: ${candidates.join(", ")})`);
 }
+

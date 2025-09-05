@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 
 type DiffLine = {
   asset: string;
+  city?: string; // ⬅️ NEW
   tenantId: string;
   tenantLabel?: string;
   am?: { gla_m2: number; rent_eur_pa: number; walt_years: number };
@@ -47,6 +48,7 @@ export default function OverviewClient() {
 
   // filtres
   const [onlyMismatch, setOnlyMismatch] = useState(false);
+  const [onlyMajor, setOnlyMajor] = useState(false); // NEW
   const [query, setQuery] = useState("");
 
   // commentaires
@@ -106,6 +108,8 @@ useEffect(() => {
 
   const k = data.kpis;
   const qn = norm(query);
+  const isMajorLike = (s: string) =>
+  s === "major_mismatch" || s === "missing_on_am" || s === "missing_on_pm";
 
   // helper: rent = 0 des deux côtés (filtre permanent)
   const bothRentZero = (l: DiffLine) => {
@@ -114,17 +118,22 @@ useEffect(() => {
     return ra === 0 && rp === 0;
   };
 
-  // lignes filtrées (permanent: on exclut toujours bothRentZero)
-  const lines = (data.lines ?? [])
-    .filter((l) => !bothRentZero(l))
-    .filter((l) => !onlyMismatch || isMismatch(l.status))
-    .filter((l) => {
-      if (!qn) return true;
-      const assetMatch = norm(l.asset).includes(qn);
-      const label = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
-      const tenantMatch = norm(label).includes(qn);
-      return assetMatch || tenantMatch;
-    });
+
+const lines = (data.lines ?? [])
+  .filter((l) => !bothRentZero(l))
+  .filter((l) =>
+    onlyMajor
+      ? isMajorLike(l.status)                 // ← Major = major + missing_on_*
+      : (!onlyMismatch || isMismatch(l.status))
+  )
+  .filter((l) => {
+    if (!qn) return true;
+    const assetMatch  = norm(l.asset).includes(qn);
+    const label       = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
+    const tenantMatch = norm(label).includes(qn);
+    return assetMatch || tenantMatch;
+  });
+
 
   // KPI filtré
   const deltaRentFiltered = lines.reduce((s, l) => s + (Number(l.delta?.rent) || 0), 0);
@@ -168,6 +177,19 @@ useEffect(() => {
               />
               <span>Seulement mismatches</span>
             </label>
+            <label className="inline-flex items-center gap-2 whitespace-nowrap shrink-0">
+  <input
+    type="checkbox"
+    className="h-4 w-4 accent-red-600"
+    checked={onlyMajor}
+    onChange={(e) => {
+      const v = e.target.checked;
+      setOnlyMajor(v);
+      if (v) setOnlyMismatch(true); // UX: cocher "Major" implique "Mismatch"
+    }}
+  />
+  <span>Major uniquement</span>
+</label>
           </div>
         </div>
 
@@ -227,6 +249,7 @@ useEffect(() => {
               <th className="border-b p-2 text-left whitespace-nowrap" style={{ width: "1%" }}>
                 Asset
               </th>
+              <th className="border-b p-2 text-left whitespace-nowrap" style={{ width: "1%" }}>City</th> {/* ⬅️ NEW */}
               <th className="border-b p-2 text-left whitespace-nowrap" style={{ width: "1%" }}>
                 Tenant
               </th>
@@ -253,6 +276,7 @@ useEffect(() => {
                   <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>
                     {l.asset}
                   </td>
+                  <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>{l.city || "-"}</td> {/* ⬅️ NEW */}
                   <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>
                     {l.tenantLabel ?? prettyFromTenantId(l.tenantId)}
                   </td>
