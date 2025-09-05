@@ -243,13 +243,13 @@ useEffect(() => {
             </tr>
           </thead>
           <tbody>
-            {lines.map((l, i) => {
-              const key = l.tenantId;
+            {lines.map((l) => {
+              const key = l.tenantId;               // ← identifiant stable
               const val = comments[key] ?? "";
               const savingThis = !!saving[key];
 
               return (
-                <tr key={i} className={`${statusColor(l.status)} text-gray-900`}>
+                <tr key={key} className={`${statusColor(l.status)} text-gray-900`}>
                   <td className="p-2 whitespace-nowrap" style={{ width: "1%" }}>
                     {l.asset}
                   </td>
@@ -275,28 +275,17 @@ useEffect(() => {
                   {/* Commentaire */}
                   <td className="p-2">
                     <input
-                      className={`w-full rounded border px-2 py-1 outline-none focus:ring-2 focus:ring-blue-300 ${
-                        savingThis ? "opacity-60" : ""
-                      }`}
+                      className={`w-full rounded border px-2 py-1 outline-none focus:ring-2 focus:ring-blue-300 ${savingThis ? "opacity-60" : ""}`}
                       placeholder="Ajouter un commentaire…"
                       value={val}
                       onChange={(e) => setComments((m) => ({ ...m, [key]: e.target.value }))}
-                      onBlur={() => saveComment(key, comments[key] ?? "")}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                      }}
+                      onBlur={() => saveComment(key, comments[key] ?? "")}  // ← envoie bien tenantId
+                      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                     />
                   </td>
                 </tr>
               );
             })}
-            {lines.length === 0 && (
-              <tr>
-                <td className="p-3 text-gray-500" colSpan={12}>
-                  Aucune ligne.
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>

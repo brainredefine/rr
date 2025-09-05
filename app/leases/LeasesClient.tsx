@@ -21,17 +21,14 @@ type Result = {
 };
 
 const fmtInt = (v: number | undefined | null) =>
-  v == null || Number.isNaN(Number(v))
-    ? "-"
-    : new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(v));
+  v == null || Number.isNaN(Number(v)) ? "-" :
+  new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(v));
 const fmt1 = (v: number | undefined | null) =>
-  v == null || Number.isNaN(Number(v))
-    ? "-"
-    : new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(v));
+  v == null || Number.isNaN(Number(v)) ? "-" :
+  new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(v));
 const fmt2 = (v: number | undefined | null) =>
-  v == null || Number.isNaN(Number(v))
-    ? "-"
-    : new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
+  v == null || Number.isNaN(Number(v)) ? "-" :
+  new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
 
 const fmtDateEU = (s?: string | null) => {
   if (!s) return "-";
@@ -76,6 +73,7 @@ export default function LeasesClient() {
           fetch("/api/leases"),
           fetch("/api/notes"),
         ]);
+
         if (!resLease.ok) throw new Error(`/api/leases ${resLease.status}`);
         const leases: Result = await resLease.json();
 
@@ -99,7 +97,7 @@ export default function LeasesClient() {
     })();
   }, []);
 
-  // save note (dans la portée du composant)
+  // save note
   const saveNote = async (key: string, comment: string) => {
     try {
       setSaving((s) => ({ ...s, [key]: true }));
@@ -117,15 +115,19 @@ export default function LeasesClient() {
   // derived
   const qn = norm(query.trim());
 
-  // ✅ filtre par asset / tenant / commentaire (notes)
+  // clé de commentaire par (tenantId + GLA)
+  const noteKeyOf = (l: Line) => `${l.tenantId}::gla=${Number(l.gla_m2 ?? 0)}`;
+
   const linesFiltered = useMemo(() => {
     const base = data?.lines ?? [];
     if (!qn) return base;
     return base.filter((l) => {
-      const assetMatch = norm(l.asset).includes(qn);
-      const label = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
+      const assetMatch  = norm(l.asset).includes(qn);
+      const label       = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
       const tenantMatch = norm(label).includes(qn);
-      const noteMatch = norm(notes[l.tenantId] ?? "").includes(qn);
+      const noteKey     = noteKeyOf(l);
+      const noteVal     = notes[noteKey] ?? notes[l.tenantId] ?? ""; // fallback tenant-only
+      const noteMatch   = norm(noteVal).includes(qn);
       return assetMatch || tenantMatch || noteMatch;
     });
   }, [data?.lines, notes, qn]);
@@ -189,9 +191,8 @@ export default function LeasesClient() {
           </thead>
           <tbody>
             {linesFiltered.map((l, i) => {
-              // clé unique (évite les collisions en cas de lignes dupliquées pour un tenant)
-              const rowKey = `${l.asset}::${l.tenantId}::${l.gla_m2 ?? ""}::${l.lease_start ?? ""}::${l.lease_end ?? ""}::${i}`;
-              const noteKey = l.tenantId; // même note pour toutes les lignes du même tenant
+              const rowKey  = `${l.asset}::${l.tenantId}::${l.gla_m2 ?? ""}::${l.lease_start ?? ""}::${l.lease_end ?? ""}::${i}`;
+              const noteKey = noteKeyOf(l);
               const savingThis = !!saving[noteKey];
 
               return (
@@ -211,7 +212,7 @@ export default function LeasesClient() {
                     <input
                       className={`w-full rounded border px-2 py-1 outline-none focus:ring-2 focus:ring-blue-300 ${savingThis ? "opacity-60" : ""}`}
                       placeholder="Ajouter une note…"
-                      value={notes[noteKey] ?? ""}
+                      value={notes[noteKey] ?? notes[l.tenantId] ?? ""}
                       onChange={(e) => setNotes((m) => ({ ...m, [noteKey]: e.target.value }))}
                       onBlur={() => saveNote(noteKey, notes[noteKey] ?? "")}
                       onKeyDown={(e) => {
