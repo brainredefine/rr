@@ -19,6 +19,7 @@ export type Row = {
   options_text?: string;  
   psm?: number;     
   city?: string; // ⬅️ NEW 
+  receivables?: number;
 };
 
 export type BridgeTenantItem = {

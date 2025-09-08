@@ -79,11 +79,13 @@ export function parseXlsxBuffer(buf: Buffer): Row[] {
     const r = normalizeHeaders(r0);
     const asset_code = getStr(r, "asset_code");
     const tenant_name = getStr(r, "tenant_name");
+    const receivables = toNum(r.receivables);
     if (!asset_code || !tenant_name) continue;
 
     out.push({
       asset_code,
       city: String(r.city ?? "").trim(),
+      receivables,
       tenant_name,
       gla_m2: toNum(r["gla_m2"]),
       rent_eur_pa: toNum(r["rent_eur_pa"]),

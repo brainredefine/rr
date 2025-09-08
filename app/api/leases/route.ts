@@ -20,6 +20,7 @@ type Line = {
   lease_end?: string;
   options_text?: string;
   psm?: number;
+  receivables?: number;
 };
 type Result = {
   kpis: { tenants_total: number; rent_sum: number };
@@ -65,6 +66,7 @@ export async function GET() {
         lease_end: r.lease_end,
         options_text: r.options_text,
         psm: r.psm,
+        receivables:r.receivables,
       };
     });
 

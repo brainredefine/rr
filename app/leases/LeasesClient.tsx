@@ -15,6 +15,7 @@ type Line = {
   options_text?: string;
   psm?: number;
   city?: string; // ⬅️ NEW
+  receivables?: number;
 };
 type Result = {
   kpis?: { tenants_total: number; rent_sum: number };
@@ -189,6 +190,7 @@ export default function LeasesClient() {
               <th className="border-b p-2">Lease end</th>
               <th className="border-b p-2">Options</th>
               <th className={`border-b p-2 ${num}`}>PSM</th>
+              <th className={`border-b p-2 ${num}`}>Receivables</th>  {/* ⬅️ NEW */}
               <th className="border-b p-2 text-left w-[280px]">Comment</th>
             </tr>
           </thead>
@@ -212,6 +214,7 @@ export default function LeasesClient() {
                   <td className="p-2 text-center whitespace-nowrap">{fmtDateEU(l.lease_end)}</td>
                   <td className="p-2 text-center whitespace-nowrap">{l.options_text || "-"}</td>
                   <td className={`p-2 ${num}`}>{fmt2(l.psm)}</td>
+                  <td className={`p-2 ${num}`}>{fmtInt(l.receivables)}</td>  {/* ⬅️ NEW */}
                   <td className="p-2">
                     <input
                       className={`w-full rounded border px-2 py-1 outline-none focus:ring-2 focus:ring-blue-300 ${savingThis ? "opacity-60" : ""}`}
@@ -223,8 +226,7 @@ export default function LeasesClient() {
                         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                       }}
                     />
-                  </td>
-                </tr>
+                  </td></tr>
               );
             })}
             {linesFiltered.length === 0 && (

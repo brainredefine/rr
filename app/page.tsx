@@ -31,7 +31,7 @@ export default async function Page() {
           href="/leases"
           className="rounded-lg border border-neutral-800 bg-neutral-900 p-6 hover:bg-neutral-800 transition"
         >
-          <div className="text-lg font-medium">Vue normale</div>
+          <div className="text-lg font-medium">Normal view</div>
           <p className="mt-1 text-sm text-neutral-400">
             Personal notes, quick information, receivables (for each tenant).
           </p>
