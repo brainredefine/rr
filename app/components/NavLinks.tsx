@@ -19,8 +19,8 @@ export default function NavLinks() {
 
   return (
     <nav className="hidden md:flex items-center gap-3 text-sm">
-      <Link href="/" className={linkCls(isHome)}>Accueil</Link>
-      <Link href="/leases" className={linkCls(isLeases)}>Vue normale</Link>
+      <Link href="/" className={linkCls(isHome)}>Welcome</Link>
+      <Link href="/leases" className={linkCls(isLeases)}>Normal view</Link>
       <Link href="/rr/overview" className={linkCls(isRR)}>RR Abgleich</Link>
     </nav>
   );

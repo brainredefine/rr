@@ -131,7 +131,8 @@ const lines = (data.lines ?? [])
     const assetMatch  = norm(l.asset).includes(qn);
     const label       = l.tenantLabel ?? prettyFromTenantId(l.tenantId);
     const tenantMatch = norm(label).includes(qn);
-    return assetMatch || tenantMatch;
+    const cityMatch   = norm(l.city ?? "").includes(qn);   // ⬅️ NEW
+    return assetMatch || tenantMatch || cityMatch;
   });
 
 
@@ -245,8 +246,7 @@ const lines = (data.lines ?? [])
       <div className="rounded-xl border border-gray-200 bg-white text-gray-900 shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-700">
-            <tr>
-              <th className="border-b p-2 text-left whitespace-nowrap" style={{ width: "1%" }}>
+            <tr><th className="border-b p-2 text-left whitespace-nowrap" style={{ width: "1%" }}>
                 Asset
               </th>
               <th className="border-b p-2 text-left whitespace-nowrap" style={{ width: "1%" }}>City</th> {/* ⬅️ NEW */}
@@ -262,8 +262,7 @@ const lines = (data.lines ?? [])
               <th className={`border-b p-2 text-center ${V}`}>WALT (AM)</th>
               <th className="border-b p-2 text-center">WALT (PM)</th>
               <th className="border-b p-2 text-center">ΔWALT</th>
-              <th className="border-b p-2 text-left w-[280px]">Comment</th>
-            </tr>
+              <th className="border-b p-2 text-left w-[280px]">Comment</th></tr>
           </thead>
           <tbody>
             {lines.map((l) => {
