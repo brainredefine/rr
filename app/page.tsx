@@ -14,7 +14,7 @@ export default async function Page() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Accueil</h1>
+      <h1 className="text-2xl font-bold mb-6">Welcome!</h1>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
@@ -23,7 +23,7 @@ export default async function Page() {
         >
           <div className="text-lg font-medium">RR Abgleich</div>
           <p className="mt-1 text-sm text-neutral-400">
-            Comparatif AM vs PM + commentaires globaux.
+            AM vs PM + updated comments.
           </p>
         </Link>
 
@@ -33,7 +33,7 @@ export default async function Page() {
         >
           <div className="text-lg font-medium">Vue normale</div>
           <p className="mt-1 text-sm text-neutral-400">
-            Listing AM + notes personnelles (par tenant).
+            Personal notes, quick information, receivables (for each tenant).
           </p>
         </Link>
       </div>
