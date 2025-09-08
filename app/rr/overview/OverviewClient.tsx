@@ -145,7 +145,7 @@ const lines = (data.lines ?? [])
     <div className="p-6">
       <div className="mb-3 grid gap-3 md:grid-cols-3 md:items-center">
         {/* gauche : titre */}
-        <h1 className="text-xl font-bold">RR Abgleich – Vue d’ensemble</h1>
+        <h1 className="text-xl font-bold">RR Abgleich - Overview</h1>
 
         {/* centre : recherche + toggle, côte à côte et centrés */}
         <div className="flex justify-center">
@@ -154,7 +154,7 @@ const lines = (data.lines ?? [])
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Rechercher (asset ou tenant)…"
+                placeholder="Search asset, city, tenant..."
                 className="w-[240px] sm:w-[300px] md:w-[360px] rounded-md border border-gray-300 bg-white/90 px-3 py-1.5 text-sm text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-blue-300"
               />
               {query && (
@@ -175,7 +175,7 @@ const lines = (data.lines ?? [])
                 checked={onlyMismatch}
                 onChange={(e) => setOnlyMismatch(e.target.checked)}
               />
-              <span>Seulement mismatches</span>
+              <span>Mismatchs only</span>
             </label>
             <label className="inline-flex items-center gap-2 whitespace-nowrap shrink-0">
   <input
@@ -188,7 +188,7 @@ const lines = (data.lines ?? [])
       if (v) setOnlyMismatch(true); // UX: cocher "Major" implique "Mismatch"
     }}
   />
-  <span>Major uniquement</span>
+  <span>Major mismatchs only</span>
 </label>
           </div>
         </div>
@@ -201,8 +201,8 @@ const lines = (data.lines ?? [])
         <div className="mb-4 flex flex-wrap items-center gap-6 text-sm">
           {/* KPIs à gauche */}
           <div>Match rate: {(k.match_rate * 100).toFixed(1)}%</div>
-          <div>ΔRent (filtres): {fmtInt(deltaRentFiltered)} €</div>
-          <div>Résultats: {fmtInt(lines.length)}</div>
+          <div>ΔRent: {fmtInt(deltaRentFiltered)} €</div>
+          <div>Results: {fmtInt(lines.length)}</div>
 
           {/* Légende à droite */}
           <div className="ml-auto flex items-center gap-5">
@@ -212,11 +212,11 @@ const lines = (data.lines ?? [])
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block h-3.5 w-3.5 rounded-sm bg-blue-400 ring-1 ring-blue-400" />
-              <span>Manquant PM</span>
+              <span>Missing in 3PM</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block h-3.5 w-3.5 rounded-sm bg-orange-400 ring-1 ring-orange-400" />
-              <span>Manquant AM</span>
+              <span>Missing for us</span>
             </div>
           </div>
         </div>
@@ -262,7 +262,7 @@ const lines = (data.lines ?? [])
               <th className={`border-b p-2 text-center ${V}`}>WALT (AM)</th>
               <th className="border-b p-2 text-center">WALT (PM)</th>
               <th className="border-b p-2 text-center">ΔWALT</th>
-              <th className="border-b p-2 text-left w-[280px]">Commentaire</th>
+              <th className="border-b p-2 text-left w-[280px]">Comment</th>
             </tr>
           </thead>
           <tbody>
@@ -300,7 +300,7 @@ const lines = (data.lines ?? [])
                   <td className="p-2">
                     <input
                       className={`w-full rounded border px-2 py-1 outline-none focus:ring-2 focus:ring-blue-300 ${savingThis ? "opacity-60" : ""}`}
-                      placeholder="Ajouter un commentaire…"
+                      placeholder="Add a comment…"
                       value={val}
                       onChange={(e) => setComments((m) => ({ ...m, [key]: e.target.value }))}
                       onBlur={() => saveComment(key, comments[key] ?? "")}  // ← envoie bien tenantId

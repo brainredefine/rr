@@ -130,7 +130,7 @@ export default function LeasesClient() {
       const noteKey     = noteKeyOf(l);
       const noteVal     = notes[noteKey] ?? notes[l.tenantId] ?? ""; // fallback tenant-only
       const noteMatch   = norm(noteVal).includes(qn);
-      return assetMatch || tenantMatch || noteMatch;
+      return assetMatch || tenantMatch || cityMatch || noteMatch;  // ⬅️ add cityMatch
     });
   }, [data?.lines, notes, qn]);
 
@@ -150,12 +150,12 @@ export default function LeasesClient() {
   return (
     <div className="p-6">
       <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-xl font-bold">Vue normale (AM)</h1>
+        <h1 className="text-xl font-bold">Basic view (AM)</h1>
         <div className="relative">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher (asset, tenant, note)…"
+            placeholder="Search asset, city, tenant..."
             className="w-64 rounded-md border border-gray-300 bg-white/90 px-3 py-1.5 text-sm text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-blue-300"
           />
           {query && (
@@ -171,8 +171,8 @@ export default function LeasesClient() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-6 text-sm">
-        <div>Résultats: {fmtInt(linesFiltered.length)}</div>
-        <div>Rent (filtres): {fmtInt(rentFiltered)} €</div>
+        <div>Results: {fmtInt(linesFiltered.length)}</div>
+        <div>Rent: {fmtInt(rentFiltered)} €</div>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
@@ -189,7 +189,7 @@ export default function LeasesClient() {
               <th className="border-b p-2">Lease end</th>
               <th className="border-b p-2">Options</th>
               <th className={`border-b p-2 ${num}`}>PSM</th>
-              <th className="border-b p-2 text-left w-[280px]">Commentaire</th>
+              <th className="border-b p-2 text-left w-[280px]">Comment</th>
             </tr>
           </thead>
           <tbody>
