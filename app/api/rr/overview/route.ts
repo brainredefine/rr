@@ -137,8 +137,8 @@ export async function GET() {
       else if (am && !pm) status = "missing_on_pm";
       else {
         const abs = Math.abs;
-        const MINOR_PCT = 0.02;
-        const MAJOR_PCT = 0.05;
+        const MINOR_PCT = 0.002;
+        const MAJOR_PCT = 0.005;
         const MINOR_WALT = 1.5;
         const MAJOR_WALT = 50;
         const misG = baseG ? abs(delta_gla) / baseG : 0;
